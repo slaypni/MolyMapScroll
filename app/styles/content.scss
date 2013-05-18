@@ -1,0 +1,18 @@
+@import "compass/css3";
+
+#moly_scroll_back_panel {
+    position: fixed;
+    right: 0px;
+    top: 0px;
+    width: 200px;
+    height: 100%;
+    z-index: 2147483647;
+    max-width: 400px;
+    background-color: #000;
+    opacity: 0.5;
+
+    canvas {
+        width: 100%;
+        height: 100%;
+    }
+}
