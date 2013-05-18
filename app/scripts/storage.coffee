@@ -1,7 +1,7 @@
 # require underscore.js
 
 INITIAL_SETTINGS =
-    width: 100
+    width: 160
     bindings:
         show: [[']']]
 
