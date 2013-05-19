@@ -1,9 +1,9 @@
 CONFIG_DESCRIPTIONS = [
-    {name: 'to', description: 'Your language'}
+    {name: 'width', description: 'Default width'}
 ]
 
 BINDING_DESCRIPTIONS = [
-    {name: 'translate', description: 'Translate'}
+    {name: 'toggle', description: 'Open panel'}
 ]
 
 MODIFIERS = ['Shift', 'Ctrl', 'Alt', 'Command', 'Meta']

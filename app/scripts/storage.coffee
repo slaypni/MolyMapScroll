@@ -3,7 +3,8 @@
 INITIAL_SETTINGS =
     width: 160
     bindings:
-        show: [[']']]
+        toggle: [['S']]
+        reload: [] # [['Ctrl', ']']]
 
 EMPTY_SETTINGS =
     ( (items) ->
@@ -58,6 +59,8 @@ getSanitizedSettings = (settings, key = null) ->
     if not settings.hasOwnProperty(key) then return undefined
     val = settings[key]
     switch key
+        when 'width'
+            if not isNaN(parseInt(val)) then parseInt(val) else INITIAL_SETTINGS.width 
         when 'bindings'
             getSanitizedBindings(val)
         else val

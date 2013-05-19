@@ -14,7 +14,9 @@ chrome.runtime.sendMessage {type: 'getSettings'}, (_settings) ->
        
     hapt_listener = haptListen (keys) ->
         _keys = keys.join(' ')
-        if _keys in (binding.join(' ') for binding in settings.bindings.show)
+        if _keys in (binding.join(' ') for binding in settings.bindings.toggle)
+            Scroll.get().toggle()
+        else if _keys in (binding.join(' ') for binding in settings.bindings.reload)
             Scroll.get().show()
             
         return true
@@ -28,18 +30,61 @@ class Scroll
     
     class _Scroll
         constructor: ->
+            createCanvas = =>
+                canvas = document.createElement('canvas')
+                canvas.className = 'moly_scroll'
+                canvas.width = settings.width
+                canvas.height = @element.offsetHeight
+
+                canvas.addEventListener 'mousedown', (event) =>
+                    client = 
+                        width: window.innerWidth or document.documentElement.clientWidth
+                        height: window.innerHeight or document.documentElement.clientHeight
+                    offset = -1 * @offset * (document.width / @image.width)
+                    point = offset + event.clientY * (document.width / canvas.width)
+                    if client.height / 2 < point < document.height - client.height / 2
+                        window.scroll(window.scrollX, point - client.height / 2)
+                    else if 0 <= point <= client.height / 2
+                        window.scroll(window.scrollX, 0)
+                    else if document.height - client.height / 2 <= point <= document.height
+                        window.scroll(window.scrollX, document.height - client.height)
+                
+                return canvas
+            
+            createDragbar = =>
+                dragbar = document.createElement('div')
+                dragbar.id = 'dragbar'
+                 
+                dragbar.addEventListener 'mousedown', (event) =>
+                    _callee = arguments.callee
+                    dragbar.removeEventListener('mousedown', arguments.callee)
+                    initial_width = parseInt(@element.style.width)
+                    initial_x = event.clientX
+                 
+                    mousemove_handler = (event) =>
+                        @width = "#{initial_x - event.clientX + initial_width}px"
+                        @element.style.width = @width
+                        @draw()
+                    window.addEventListener('mousemove', mousemove_handler, true)
+                    
+                    window.addEventListener('mouseup', (event) =>
+                        window.removeEventListener('mouseup', arguments.callee, true)
+                        window.removeEventListener('mousemove', mousemove_handler, true)
+                        dragbar.addEventListener('mousedown', _callee)
+                    , true)
+                     
+                return dragbar
+
             @image = null
+            @width = "#{settings.width}px"
             @element = document.createElement('div')
             @element.id = 'moly_scroll_back_panel'
             @element.style.visibility = 'hidden'
             document.querySelector('body').appendChild(@element)
-            @canvas = document.createElement('canvas')
-            @canvas.className = 'moly_scroll'
-            @canvas.width = settings.width
-            @canvas.height = @element.offsetHeight
+            @canvas = createCanvas()
             @element.appendChild(@canvas)
 
-            dragbar = @createDragbar()
+            dragbar = createDragbar()
             @element.appendChild(dragbar)
 
             @gl = null
@@ -49,6 +94,7 @@ class Scroll
                 u: {}
                 buffer: {}
                 texture: null
+            @offset = 0
 
             window.addEventListener 'scroll', (event) =>
                 @draw()
@@ -56,11 +102,23 @@ class Scroll
         show: =>
             width = parseInt(@element.style.width)
             if width == 0 or isNaN(width)
-                @element.style.width = "#{settings.width}px"
+                @element.style.width = @width
             @captureImage =>
                 @element.style.visibility = 'visible'
                 @initWebGl()
-                @set()
+                @draw()
+
+        toggle: =>
+            width = parseInt(@element.style.width)
+            if not @gl?
+                if width == 0 or isNaN(width)
+                    @show()
+            else
+                if width == 0 or isNaN(width)
+                    @element.style.width = @width
+                else
+                    @width = @element.style.width
+                    @element.style.width = "0px"
 
         captureImage: (cb = null) =>
             body = document.querySelector('body')
@@ -89,11 +147,20 @@ class Scroll
                         @image = new Image()
                         @image.onload = => cb?()
                         @image.src = _canvas.toDataURL('image/png')
-                    image.src = canvas.toDataURL('image/png')
+                    try
+                        image.src = canvas.toDataURL('image/png')
+                    catch error
+                        showToast = (text) =>
+                            toast = document.createElement('div')
+                            toast.className = 'moly_scroll_toast'
+                            toast.innerText = text
+                            body = document.querySelector('body')
+                            body.appendChild(toast)
+                            window.setTimeout( =>
+                                body.removeChild(toast)
+                            , 4000)
+                        showToast('Failed to convert HTML into Image.')
             )
-
-        set: =>
-            @draw()
 
         initWebGl: =>
             return if @gl?
@@ -137,23 +204,22 @@ class Scroll
             @shader.u.color_filter = @gl.getUniformLocation(@shader.program, 'u_color_filter')
             @shader.u.offset = @gl.getUniformLocation(@shader.program, 'u_offset')
 
-            @shader.texture = @gl.createTexture()            
-            @uploadImage(@image)
-
-        uploadImage: (image) =>
-            @gl.bindTexture(@gl.TEXTURE_2D, @shader.texture)
-            @gl.texParameteri(@gl.TEXTURE_2D, @gl.TEXTURE_WRAP_S, @gl.CLAMP_TO_EDGE)
-            @gl.texParameteri(@gl.TEXTURE_2D, @gl.TEXTURE_WRAP_T, @gl.CLAMP_TO_EDGE)
-            @gl.texParameteri(@gl.TEXTURE_2D, @gl.TEXTURE_MIN_FILTER, @gl.NEAREST)
-            @gl.texParameteri(@gl.TEXTURE_2D, @gl.TEXTURE_MAG_FILTER, @gl.NEAREST)
-            @gl.texImage2D(@gl.TEXTURE_2D, 0, @gl.RGBA, @gl.RGBA, @gl.UNSIGNED_BYTE, image)
+            uploadImage = (image) =>
+                @shader.texture = @gl.createTexture()            
+                @gl.bindTexture(@gl.TEXTURE_2D, @shader.texture)
+                @gl.texParameteri(@gl.TEXTURE_2D, @gl.TEXTURE_WRAP_S, @gl.CLAMP_TO_EDGE)
+                @gl.texParameteri(@gl.TEXTURE_2D, @gl.TEXTURE_WRAP_T, @gl.CLAMP_TO_EDGE)
+                @gl.texParameteri(@gl.TEXTURE_2D, @gl.TEXTURE_MIN_FILTER, @gl.NEAREST)
+                @gl.texParameteri(@gl.TEXTURE_2D, @gl.TEXTURE_MAG_FILTER, @gl.NEAREST)
+                @gl.texImage2D(@gl.TEXTURE_2D, 0, @gl.RGBA, @gl.RGBA, @gl.UNSIGNED_BYTE, image)
+            uploadImage(@image)
 
         draw: =>
             return if not @gl?
-            @canvas.width = parseInt(@element.style.width)
+            @canvas.width = parseInt(@width)
             @canvas.height = @element.offsetHeight
             @gl.viewport(0, 0, @canvas.width, @canvas.height)
-            canvas_aspect = @canvas.offsetWidth / @canvas.offsetHeight
+            canvas_aspect = @canvas.width / @canvas.height
 
             rect2coord = (rect) =>
                 x1 = rect.left
@@ -224,10 +290,10 @@ class Scroll
                     overflow_image_y
                 else if scroll <= virtual_window_height / 2
                     0
-            offset = getImageOffsetTop(window.scrollY + client.height) * -1
+            @offset = getImageOffsetTop(window.scrollY + client.height) * -1
 
             drawWholeImage = () =>
-                drawImage(0, 0, @image.width, @image.height, [0, offset], [0.5, 0.5, 0.5, 1.0])
+                drawImage(0, 0, @image.width, @image.height, [0, @offset], [0.5, 0.5, 0.5, 1.0])
                 
             drawWholeImage()
             drawImage(
@@ -235,7 +301,7 @@ class Scroll
                 window_visible_ratio.top * @image.height,
                 window_visible_ratio.width * @image.width,
                 window_visible_ratio.height * @image.height,
-                [0, offset]
+                [0, @offset]
             )
 
         vertex_shader: """
@@ -273,25 +339,3 @@ class Scroll
         """
 
         
-        createDragbar: =>
-            dragbar = document.createElement('div')
-            dragbar.id = 'dragbar'
-
-            dragbar.addEventListener 'mousedown', (event) =>
-                _callee = arguments.callee
-                dragbar.removeEventListener('mousedown', arguments.callee)
-                initial_width = parseInt(@element.style.width)
-                initial_x = event.clientX
-
-                mousemove_handler = (event) =>
-                    @element.style.width = "#{initial_x - event.clientX + initial_width}px"
-                    @draw()
-                window.addEventListener('mousemove', mousemove_handler, true)
-                
-                window.addEventListener('mouseup', (event) =>
-                    window.removeEventListener('mouseup', arguments.callee, true)
-                    window.removeEventListener('mousemove', mousemove_handler, true)
-                    dragbar.addEventListener('mousedown', _callee)
-                , true)
-            
-            return dragbar
