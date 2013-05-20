@@ -4,7 +4,7 @@
     "description": "The name of the application"
   },
   "appDescription": {
-    "message": "Show a mini map of the website along with the browser window.",
+    "message": "Display a mini map of the website along with the browser window.",
     "description": "The description of the application"
   }
 }
