@@ -3,7 +3,7 @@
 INITIAL_SETTINGS =
     width: 160
     bindings:
-        toggle: [['S']]
+        toggle: [['Ctrl', ']']]
         reload: [] # [['Ctrl', ']']]
 
 EMPTY_SETTINGS =
