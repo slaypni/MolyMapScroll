@@ -2375,7 +2375,7 @@ _html2canvas.Preload = function( options ) {
     loadImage: function( src ) {
       var img, imageObj;
       if ( src && images[src] === undefined ) {
-        img = new Image();
+        img = document.createElement('img');;
         if ( src.match(/data:image\/.*;base64,/i) ) {
           img.src = src.replace(/url\(['"]{0,}|['"]{0,}\)$/ig, '');
           imageObj = images[src] = {

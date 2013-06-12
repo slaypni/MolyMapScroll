@@ -127,7 +127,7 @@ class Scroll
             html2canvas(body,
                 onrendered: (canvas) =>
                     window.scrollTo(_x, _y)
-                    image = new Image()
+                    image = document.createElement('img')
                     image.onload = =>
                         _canvas = document.createElement('canvas')
                         _canvas.height = _.min([4096, image.height])
@@ -144,7 +144,7 @@ class Scroll
                             _canvas.width,
                             _canvas.height
                         )
-                        @image = new Image()
+                        @image = document.createElement('img')
                         @image.onload = => cb?()
                         @image.src = _canvas.toDataURL('image/png')
                     try
