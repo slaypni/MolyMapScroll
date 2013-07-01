@@ -13,7 +13,7 @@
             "scripts/storage.js",
             "scripts/background.js"
         ],
-        "persistent": true
+        "persistent": false
     },
   "options_page": "options.html",
   "content_scripts": [
